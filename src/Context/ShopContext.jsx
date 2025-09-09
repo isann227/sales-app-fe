@@ -1,102 +1,91 @@
-import React, { createContext } from "react";
-import { products } from '../assets/assets';
+import React, { createContext, useEffect, useState } from "react";
+import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
 export const shopContext = createContext();
 
-const ShopContextProvider = ({children}) => {
-    const currency = '$';
-    const delivery_fee = 10;
-    const [showSeach, setShowSearch] = React.useState(false);
-    const [Size, setSize] = React.useState('');
-    const [search, setSearch] = React.useState("");
-    const [cartItems, setCartItems] = React.useState({});
-    const [DataCart, setDataCart] = React.useState([]);
-    const navigate=useNavigate();
+const ShopContextProvider = ({ children }) => {
+  const currency = "$";
+  const delivery_fee = 10;
+  const [products, setProducts] = useState([]);
+  const [cartItems, setCartItems] = useState({});
+  const [Size, setSize] = useState("");
+  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
+  // fetch produk dari backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/api/products");
+        setProducts(res.data);
+      } catch (err) {
+        console.error(err);
+        toast.error("Gagal ambil data produk");
+      }
+    };
+    fetchData();
+  }, []);
 
-    const Add_Cart = async (itemID, itemSize) => {
+  const Add_Cart = (itemID, itemSize) => {
+    if (!Size) {
+      toast.error("Sorry, choose the size first");
+      return;
+    }
 
-        let CartData = structuredClone(cartItems);
+    let CartData = structuredClone(cartItems);
+    if (CartData[itemID]) {
+      if (CartData[itemID][itemSize]) {
+        CartData[itemID][itemSize] += 1;
+      } else {
+        CartData[itemID][itemSize] = 1;
+      }
+    } else {
+      CartData[itemID] = { [itemSize]: 1 };
+    }
+    setCartItems(CartData);
+  };
 
-        if (!Size) {
-            toast.error("Sorry, choose the size first");
-            return;
+  const get_Cart_Count = () => {
+    let count = 0;
+    for (let items in cartItems)
+      for (let item in cartItems[items]) count += cartItems[items][item] || 0;
+    return count;
+  };
+
+  const updateQuantity = (itemID, itemSize, quantity) => {
+    let copy = structuredClone(cartItems);
+    copy[itemID][itemSize] = quantity;
+    setCartItems(copy);
+  };
+
+  const get_TotalCart = () => {
+    let Total = 0;
+    for (let items in cartItems) {
+      for (let item in cartItems[items]) {
+        const itemInfo = products.find((p) => p.id === parseInt(items));
+        if (itemInfo) {
+          Total += itemInfo.price * cartItems[items][item];
         }
-
-        if (CartData[itemID]) {
-            if (CartData[itemID][itemSize]) {
-                CartData[itemID][itemSize] += 1;
-            }
-            else {
-                CartData[itemID][itemSize] = 1;
-            }
-        } else {
-            CartData[itemID] = {};
-            CartData[itemID][itemSize] = 1;
-        }
-
-        setCartItems(CartData);
+      }
     }
+    return Total;
+  };
 
+  const value = {
+    products, currency, delivery_fee,
+    cartItems, Add_Cart, Size, setSize,
+    search, setSearch,
+    updateQuantity, get_Cart_Count, get_TotalCart,
+    navigate
+  };
 
-    const get_Cart_Count = () => {
-        let count = 0;
-        for (let items in cartItems)
-            for (let item in cartItems[items]) {
-                try {
-                    if (cartItems[items][item] > 0) {
-                        count += cartItems[items][item];
-                    }
-                } catch (e) {
-                    alert(e);
-                }
-            }
-        return count;
-    }
-
-    const updateQuantity = (itemID, itemSize, quantitty) => {
-        let copy = structuredClone(cartItems);
-        copy[itemID][itemSize] = quantitty;
-        setCartItems(copy);
-    }
-
-    const get_TotalCart = () => {
-        let Total = 0;
-        for (let items in cartItems) {
-            for (let item in cartItems[items]) {
-                const itemInfo = products.find((product) => product._id === items)
-
-                try {
-                    if (cartItems[items][item] > 0) {
-                        Total += itemInfo.price * cartItems[items][item];
-                    }
-                } catch (e) {
-                    alert(e);
-                }
-            }
-        }
-
-        return Total;
-    }
-
-
-    const value = {
-        products, currency, delivery_fee, showSeach,
-        setShowSearch, search, setSearch,
-        cartItems, Add_Cart, Size, setSize, updateQuantity, 
-        get_Cart_Count,get_TotalCart,navigate,DataCart,setDataCart
-    }
-
-    return (
-        <shopContext.Provider value={value}>
-            {children}
-        </shopContext.Provider>
-    );
-
-}
+  return (
+    <shopContext.Provider value={value}>
+      {children}
+    </shopContext.Provider>
+  );
+};
 
 export default ShopContextProvider;
-
-
